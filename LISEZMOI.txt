@@ -1,0 +1,2 @@
+STREAMIX - version web (TV VIDAA / navigateur)
+Ne pas modifier ces fichiers a la main : lance METTRE-A-JOUR-VIDAA.bat dans le dossier streamix-tv.
