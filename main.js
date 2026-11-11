@@ -1,5 +1,6 @@
-var APP_VERSION='0.3.3 · 11/11 01h25';
+var APP_VERSION='0.3.5 · 11/11 01h45';
 var IS_TIZEN=!!(window.tizen&&window.tizen.application);
+if(!IS_TIZEN){try{document.documentElement.classList.add('web');}catch(e){}}
 // ==PURE==
 function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
 function mkErr(code,extra){var e=new Error(code);e.code=code;e.extra=extra;return e;}
@@ -265,6 +266,7 @@ if(!IS_TIZEN&&window.history&&window.history.pushState){
   window.addEventListener('popstate',function(){
     if(BK.leaving) return;
     var keyJustDone=Date.now()-BK.last<400;
+    BK.pop=Date.now();
     try{window.history.pushState({sx:1},'');}catch(e){}
     if(keyJustDone) return;
     if(S.loading){cancelLoading();return;}
@@ -281,7 +283,7 @@ document.addEventListener('keydown',function(e){
   var k=keyName(e);
   if(!k) return;
   e.preventDefault();
-  if(k==='back') BK.last=Date.now();
+  if(k==='back'){if(!IS_TIZEN&&(Date.now()-(BK.pop||0)<500||Date.now()-(BK.closedAt||0)<500)) return;BK.last=Date.now();}
   if(S.loading){if(k==='back') cancelLoading();return;}
   if(P.open&&!KB.open&&!MD.open){playerKey(k);return;}
   if(GD.open&&!KB.open&&!MD.open){guideKey(k);return;}
@@ -321,6 +323,14 @@ if(!IS_TIZEN){
     if(!t||t===document||t===document.activeElement) return;
     try{t.focus({preventScroll:true});}catch(x){try{t.focus();}catch(y){}}
   });
+  var MV={x:-1,y:-1};
+  document.addEventListener('mousemove',function(e){
+    if(!P.open||MD.open||KB.open) return;
+    if(Math.abs(e.clientX-MV.x)+Math.abs(e.clientY-MV.y)<12) return;
+    MV.x=e.clientX;MV.y=e.clientY;
+    if(!$('player').classList.contains('ctl')&&$('perr').style.display!=='block') showCtl();
+    else{clearTimeout(P.ctlT);P.ctlT=setTimeout(hideCtl,7000);}
+  });
   var ES={el:null,dy:0,t:null};
   document.addEventListener('mousemove',function(e){
     var el=document.elementFromPoint(e.clientX,e.clientY),sc=null,cs;
@@ -347,7 +357,14 @@ if(!IS_TIZEN){
 document.addEventListener('click',function(e){
   var el=e.target;
   while(el&&el!==document&&!(el.getAttribute&&el.getAttribute('data-act'))) el=el.parentNode;
-  if(!el||el===document) return;
+  if(!el||el===document){
+    // clic (OK du pointeur VIDAA) sur l'image d'un film ou d'une chaine : afficher / cacher les commandes
+    if(P.open&&!MD.open&&!KB.open&&$('player').contains(e.target)&&$('perr').style.display!=='block'){
+      if(P.nextShown&&$('pnextcard').style.display==='block'){playNext();return;}
+      if($('player').classList.contains('ctl')) hideCtl(); else showCtl();
+    }
+    return;
+  }
   act(el.getAttribute('data-act'),el.getAttribute('data-arg'),el);
 });
 
@@ -1493,6 +1510,7 @@ function updateFavBtn(){
 function play(it,list,idx,force){
   if(!P.open) P.prevFocus=document.activeElement;
   var sameItem0=(P.item===it);
+  if(!P.open){try{P.prevScroll={g:$('gridwrap').scrollTop,c:$('cats').scrollTop};}catch(e){P.prevScroll=null;}}
   P.open=true;P.item=it;P.list=list;P.idx=idx;P.force=!!force;P.retry=0;P.nativeTried=false;
   if(!sameItem0&&!P.reconn&&P.forceClassic){P.forceClassic=false;if(S.settings.vFormat==='zoom'||S.settings.vFormat==='cover'){S.settings.vFormat='contain';saveSettings();}}
   if(!P.reconn){P.autoN=0;}P.reconn=false;P.played=false;P.nextShown=false;P.nextCancel=false;hideNextCard();
@@ -1598,8 +1616,10 @@ function closePlayer(){
   if(GD.reopen&&!GD.open&&GD.list){GD.reopen=false;GD.open=true;$('player').style.display='none';$('perr').style.display='none';$('guide').style.display='block';gRender(false);return;}
   if(S.screen==='browse'&&S.kind==='live'&&!S.view&&S.data){try{var cs=$('cats').scrollTop;renderCats();$('cats').scrollTop=cs;}catch(e){}}
   $('player').style.display='none';$('perr').style.display='none';
-  var f=P.prevFocus;
+  var f=P.prevFocus,ps=P.prevScroll;
   if(f&&document.body.contains(f)) setFocus(f); else restoreFocus();
+  if(ps){try{$('gridwrap').scrollTop=ps.g;$('cats').scrollTop=ps.c;}catch(e){}}
+  BK.closedAt=Date.now();
 }
 function showCtl(){
   if($('perr').style.display==='block') return;
