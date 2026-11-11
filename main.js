@@ -1,4 +1,4 @@
-var APP_VERSION='0.3.2 · 10/11 22h00';
+var APP_VERSION='0.3.3 · 11/11 01h25';
 var IS_TIZEN=!!(window.tizen&&window.tizen.application);
 // ==PURE==
 function esc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
@@ -258,6 +258,21 @@ function keyName(e){
   if(c===457||k==='Info') return 'info';
   return '';
 }
+// ---------- navigateur (TV VIDAA) : la touche Retour ne doit pas quitter la page ----------
+var BK={last:0,leaving:false};
+if(!IS_TIZEN&&window.history&&window.history.pushState){
+  try{window.history.pushState({sx:1},'');}catch(e){}
+  window.addEventListener('popstate',function(){
+    if(BK.leaving) return;
+    var keyJustDone=Date.now()-BK.last<400;
+    try{window.history.pushState({sx:1},'');}catch(e){}
+    if(keyJustDone) return;
+    if(S.loading){cancelLoading();return;}
+    if(P.open&&!KB.open&&!MD.open){playerKey('back');return;}
+    if(GD.open&&!KB.open&&!MD.open){guideKey('back');return;}
+    goBack();
+  });
+}
 document.addEventListener('keydown',function(e){
   if(KB.open){
     if(!e.ctrlKey&&!e.metaKey&&!e.altKey&&e.key&&e.key.length===1){kbAdd(e.key);e.preventDefault();return;}
@@ -266,6 +281,7 @@ document.addEventListener('keydown',function(e){
   var k=keyName(e);
   if(!k) return;
   e.preventDefault();
+  if(k==='back') BK.last=Date.now();
   if(S.loading){if(k==='back') cancelLoading();return;}
   if(P.open&&!KB.open&&!MD.open){playerKey(k);return;}
   if(GD.open&&!KB.open&&!MD.open){guideKey(k);return;}
@@ -364,8 +380,9 @@ function exitApp(){
   try{if(AV.on) avStop();}catch(e){}
   try{if(window.tizen&&tizen.application){tizen.application.getCurrentApplication().exit();return;}}catch(e){}
   // TV VIDAA / navigateur : on ferme la page (ou on revient a la page precedente)
+  BK.leaving=true;
   try{window.close();}catch(e){}
-  setTimeout(function(){try{if(window.history.length>1) window.history.back();}catch(e){}},300);
+  setTimeout(function(){try{window.history.go(-2);}catch(e){}},300);
 }
 function askExit(){
   modal('Quitter STREAMIX ?','L\'application sera complètement fermée (elle ne tournera plus en arrière-plan).',[{label:'Quitter',primary:true,fn:function(){exitApp();}},{label:'Annuler'}]);
@@ -1151,7 +1168,7 @@ function openSeries(it,opts){
         var b=[];
         if(ei>=0){var ep=seasons[si].items[ei],at=resumeGet(ep);b.push({l:'▶ Reprendre '+ep.n.split(' - ')[0]+(at>30?' à '+fmtMin(at):''),fn:function(){playEp(si,ei);}});}
         else b.push({l:'▶ Regarder S'+seasons[0].n+' E'+(seasons[0].items[0].en||1),fn:function(){playEp(0,0);}});
-        b.push({l:'☰ Épisodes ('+seasons.length+' saison'+(seasons.length>1?'s':'')+')',fn:function(){closeFiche();showEps();}});
+        b.push({l:'Épisodes ('+seasons.length+' saison'+(seasons.length>1?'s':'')+')',fn:function(){closeFiche();showEps();}});
         b.push(favBtn(it));b.push({l:'Retour',fn:closeFiche});
         return b;
       };
