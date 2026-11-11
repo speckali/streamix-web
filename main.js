@@ -1,4 +1,4 @@
-var APP_VERSION='0.3.6 · 11/11 02h00';
+var APP_VERSION='0.3.8 · 11/11 14h05';
 var IS_TIZEN=!!(window.tizen&&window.tizen.application);
 if(!IS_TIZEN){try{document.documentElement.classList.add('web');}catch(e){}}
 // ==PURE==
@@ -430,7 +430,7 @@ function showHome(sel){
   h+='<div class="h2">Mes playlists</div><div class="scr" style="flex:1;min-height:0;padding:.3rem">';
   if(!S.playlists.length) h+='<div class="empty">Aucune playlist pour le moment. Ajoutez un lien M3U ou un compte Xtream.</div>';
   S.playlists.forEach(function(p){
-    h+='<div class="plrow"><div class="pl" data-f data-act="home-open" data-arg="'+esc(p.id)+'"><div class="plname">'+esc(p.name)+'</div><div class="plsub">'+(p.type==='m3u'?'Lien M3U':'Compte Xtream')+' - '+esc(hostOf(p.type==='m3u'?p.url:p.server))+(p.info&&p.info.ok===0?' - <span style="color:var(--err)">Codes non actifs</span>':(p.info?' - <span style="color:var(--ok)">Actif, '+esc(accountLine(p.info))+'</span>':''))+'</div></div><div class="btn" data-f data-act="home-del" data-arg="'+esc(p.id)+'">Supprimer</div></div>';
+    h+='<div class="plrow"><div class="pl" data-f data-act="home-open" data-arg="'+esc(p.id)+'"><div class="plname">'+esc(p.name)+'</div><div class="plsub">'+(p.free?'Chaînes publiques gratuites (iptv-org)':(p.type==='m3u'?'Lien M3U':'Compte Xtream')+' - '+esc(hostOf(p.type==='m3u'?p.url:p.server)))+(p.info&&p.info.ok===0?' - <span style="color:var(--err)">Codes non actifs</span>':(p.info?' - <span style="color:var(--ok)">Actif, '+esc(accountLine(p.info))+'</span>':''))+'</div></div><div class="btn" data-f data-act="home-del" data-arg="'+esc(p.id)+'">Supprimer</div></div>';
   });
   h+='</div><div style="padding:.5rem .3rem"><div class="btn primary" data-f data-act="home-add">Ajouter une playlist</div><div class="btn" data-f data-act="go-settings">Réglages</div></div>';
   $('s-home').innerHTML=h;
@@ -465,7 +465,10 @@ function hubClock(){
   el.innerHTML='<div class="t">'+fmtClock(nowAdj(),!!S.settings.clock12)+'</div><div class="d">'+fmtDay(d,S.settings.dateFmt||'long')+'</div><div class="d" style="font-size:.85rem;opacity:.7">v'+APP_VERSION+'</div>';
 }
 function hubReady(){return !!(S.cur&&S.data&&S.cur.id!=='__none');}
+// mode demo : seules les chaines gratuites sont presentes -> pas besoin de licence
+function freeOnly(){return S.playlists.length>0&&S.playlists.every(function(p){return p.free;});}
 function hubStatus(){
+  if(freeOnly()) return 'Chaînes gratuites - ajoutez votre playlist avec l\'icône profil en haut à droite (QR code).';
   if(!licActive()) return '<span style="color:var(--err)">Abonnement STREAMIX '+esc(licLabel().toLowerCase())+' : ouvrez l\'icône profil pour voir votre adresse MAC et votre clé.</span>';
   if(!S.playlists.length) return 'Aucune playlist : ouvrez l\'icône profil en haut à droite pour en ajouter une (QR code).';
   if(hubReady()) return esc(S.cur.name)+(S.cur.info&&S.cur.info.ok?' - Codes ACTIFS, '+esc(accountLine(S.cur.info)):'');
@@ -490,14 +493,14 @@ function showHub(sel){
 function hubNeedPlaylist(){
   if(!S.playlists.length){toast('Ajoutez d\'abord une playlist (lien M3U ou codes Xtream).');startAdd();return true;}
   if(!hubReady()){
-    var last=lsGet('streamix.last',null),id=S.playlists[0].id,i;
+    var last=lsGet('streamix.last',null),id=realPlId(),i;
     for(i=0;i<S.playlists.length;i++) if(S.playlists[i].id===last) id=last;
     openPlaylist(id);return true;
   }
   return false;
 }
 function hubOpen(kind){
-  if(!licActive()){licBlocked();return;}
+  if(!licActive()&&!freeOnly()){licBlocked();return;}
   if(hubNeedPlaylist()){S.pend=kind;return;}
   S.pend=null;
   enterBrowse();
@@ -506,6 +509,21 @@ function hubOpen(kind){
 }
 
 // ---------- ajout de playlist ----------
+var FREE_PL={id:'free-fr',type:'m3u',name:'Chaînes gratuites (légales)',url:'https://iptv-org.github.io/iptv/languages/fra.m3u',free:true};
+// premiere playlist "reelle" (jamais la liste gratuite si une autre existe)
+function realPlId(){var i;for(i=0;i<S.playlists.length;i++) if(!S.playlists[i].free) return S.playlists[i].id;return S.playlists.length?S.playlists[0].id:null;}
+// sans playlist : chaines gratuites automatiques ; retirees des qu'une vraie playlist est ajoutee
+function ensureFree(){if(!S.playlists.length){S.playlists.push(JSON.parse(JSON.stringify(FREE_PL)));savePlaylists();}}
+function dropFree(){
+  var real=S.playlists.some(function(p){return !p.free;});
+  if(!real) return;
+  var had=S.playlists.some(function(p){return p.free;});
+  if(!had) return;
+  S.playlists=S.playlists.filter(function(p){return !p.free;});savePlaylists();
+  try{window.localStorage.removeItem('streamix.fav.'+FREE_PL.id);}catch(e){}
+  delete S.cache[FREE_PL.id];
+  if(S.cur&&S.cur.free){S.cur=null;S.data=null;}
+}
 var F={type:'m3u',name:'',url:'',server:'',user:'',pass:''};
 function startAdd(){F={type:'m3u',name:'',url:'',server:'',user:'',pass:''};renderAdd();}
 function fieldHtml(key,label,ph,mask){
@@ -541,7 +559,7 @@ function savePlaylist(){
     if(!sv||!F.user.trim()||!F.pass){toast('Renseignez le serveur, l\'utilisateur et le mot de passe.');return;}
     p={id:newId(),type:'xtream',name:F.name.trim()||('Xtream - '+hostOf(sv)),server:sv,user:F.user.trim(),pass:F.pass};
   }
-  S.playlists.push(p);savePlaylists();
+  S.playlists.push(p);savePlaylists();dropFree();
   openPlaylist(p.id);
 }
 
@@ -701,7 +719,7 @@ function openPlaylist(id){
   var pl=null,i;
   for(i=0;i<S.playlists.length;i++) if(S.playlists[i].id===id) pl=S.playlists[i];
   if(!pl) return;
-  lsSet('streamix.last',pl.id);
+  if(!pl.free) lsSet('streamix.last',pl.id);
   S.cur=pl;S.view=null;S.query='';S.catId='all';S.kind='live';
   S.favs=lsGet('streamix.fav.'+pl.id,[]);
   if(!Array.isArray(S.favs)) S.favs=[];
@@ -881,7 +899,7 @@ function renderCats(){
     var d=S.data[S.kind],hid=hiddenCats(S.kind),lk=pinLocked();
     h+=catHtml('all','Toutes',allVisible().length,S.catId==='all');
     if(S.kind==='live'){var hl=histGet().length;if(hl) h+=catHtml('__recent','Récemment regardées',hl,S.catId==='__recent');}
-    else {var vl=vhistGet(S.kind).length;if(vl) h+=catHtml('__recent','▶ Déjà vus / à reprendre',vl,S.catId==='__recent');}
+    else h+=catHtml('__recent','▶ Déjà vus / à reprendre',vhistGet(S.kind).length,S.catId==='__recent');
     d.cats.forEach(function(c){if(hid[c.id]) return;h+=catHtml(c.id,(lk&&ADULT_RE.test(c.name||'')?'🔒 ':'')+c.name,c.count,S.catId===c.id);});
     var hl2=d.cats.filter(function(c){return hid[c.id];});
     if(hl2.length){
@@ -959,13 +977,13 @@ function renderGrid(){
   $('binfo').textContent=where+' - '+S.items.length+' élément'+(S.items.length>1?'s':'');
   if(!S.items.length){
     if(isEmptyMode()){$('grid').innerHTML='<div class="empty">'+(S.playlists.length?'Votre playlist n\'a pas pu être chargée (codes non actifs ou serveur indisponible).<br><br>Allez sur <b>Ajouter une playlist</b> en haut à droite pour entrer de nouveaux codes, ou sur <b>Playlists</b> pour réessayer.':'Aucune playlist pour le moment.<br><br>Allez sur <b>Ajouter une playlist</b> en haut à droite pour entrer votre lien M3U ou vos codes Xtream. Vos chaînes, films et séries apparaîtront ici.')+'</div>';return;}
-    $('grid').innerHTML='<div class="empty">'+(S.kind==='fav'&&!S.query?'Aucun favori. Placez-vous sur un élément et appuyez sur Rouge, Jaune ou Info (ou utilisez le bouton Favori dans le lecteur).':'Aucun résultat.')+'</div>';
+    $('grid').innerHTML='<div class="empty">'+(S.catId==='__recent'&&S.kind!=='live'&&!S.query?'Rien pour le moment. Les '+(S.kind==='series'?'séries':'films')+' que vous regardez apparaîtront ici, avec la reprise là où vous vous êtes arrêté.':S.kind==='fav'&&!S.query?'Aucun favori. Placez-vous sur un élément et appuyez sur Rouge, Jaune ou Info (ou utilisez le bouton Favori dans le lecteur).':'Aucun résultat.')+'</div>';
     return;
   }
   appendChunk();
 }
 function catName(id){
-  if(id==='__recent') return 'Récemment regardées';
+  if(id==='__recent') return S.kind==='live'?'Récemment regardées':'Déjà vus';
   var c=S.data[S.kind].cats,i;
   for(i=0;i<c.length;i++) if(c[i].id===id) return c[i].name;
   return id;
@@ -1838,7 +1856,7 @@ function act(a,arg,el){
       if(!pl) break;
       modal('Supprimer la playlist ?','« '+pl.name+' » sera retirée de cette TV (ses favoris aussi).',[
         {label:'Supprimer',primary:true,fn:function(){
-          S.playlists=S.playlists.filter(function(p){return p.id!==arg;});savePlaylists();
+          S.playlists=S.playlists.filter(function(p){return p.id!==arg;});savePlaylists();ensureFree();
           try{window.localStorage.removeItem('streamix.fav.'+arg);}catch(e){}
           delete S.cache[arg];
           if(S.cur&&S.cur.id===arg){S.cur=null;S.data=null;}
@@ -2014,16 +2032,16 @@ function importAccount(quiet){
     });
     var oldInfo={};S.playlists.forEach(function(p){if(p.info) oldInfo[p.id]=p.info;});
     keep.forEach(function(p){if(!p.info&&oldInfo[p.id]) p.info=oldInfo[p.id];});
-    S.playlists=keep;savePlaylists();
+    var wasFree=!!(S.cur&&S.cur.free);S.playlists=keep;savePlaylists();dropFree();
     var after=keep.filter(function(p){return p.acct;}).map(function(p){return p.name+'|'+(p.url||p.server+p.user);}).sort().join(',');
     if(after===before){if(!quiet&&res.playlists.length) toast('Playlists à jour.');return;}
     if(res.playlists.length) toast(res.playlists.length+' playlist(s) reçue(s) depuis votre compte STREAMIX');
     if(S.screen==='home') showHome();
     else if(S.screen==='profile') renderProfile();
-    if(!hubReady()&&S.playlists.length&&(S.screen==='hub'||S.screen==='profile')){
+    if(!hubReady()&&S.playlists.length&&(wasFree||S.screen==='hub'||S.screen==='profile')){
       var nw=keep.filter(function(p){return p.acct;});
-      lsSet('streamix.last',(nw[nw.length-1]||S.playlists[0]).id);
-      S.boot=true;openPlaylist((nw[nw.length-1]||S.playlists[0]).id);
+      var nid=nw.length?nw[nw.length-1].id:realPlId();lsSet('streamix.last',nid);
+      S.boot=true;openPlaylist(nid);
     } else if(S.screen==='hub') updateHubStatus();
   }).catch(function(){if(!quiet) toast('Compte STREAMIX : serveur injoignable.');});
 }
@@ -2466,8 +2484,9 @@ function vhistAdd(it){
   var src=it.sr||it,c={};
   FAV_FIELDS.forEach(function(f){if(src[f]!==undefined) c[f]=src[f];});
   var h=vhistGet().filter(function(x){return x.k!==c.k;});
+  if(!c.k) c.k=(src.t||'x')+':'+(src.sid||src.id||src.n);
   h.unshift(c);if(h.length>60) h.length=60;
-  lsSet(vhistKey(),h);
+  if(!lsSet(vhistKey(),h)){h.length=Math.min(h.length,20);if(!lsSet(vhistKey(),h)) console.log('[STREAMIX] vhist: stockage plein');}
 }
 var RIM={at:0};
 function resumeInfo(it){
@@ -2910,10 +2929,11 @@ showHome();
 var bootEl=document.getElementById('boot');if(bootEl&&!window.__errs.length) bootEl.parentNode.removeChild(bootEl);
 (function(){
   var last=lsGet('streamix.last',null),i;
+  dropFree();ensureFree();
   if(!S.playlists.length){showHub();return;}
   S.boot=true;
-  for(i=0;i<S.playlists.length;i++) if(S.playlists[i].id===last){openPlaylist(last);return;}
-  openPlaylist(S.playlists[0].id);
+  for(i=0;i<S.playlists.length;i++) if(S.playlists[i].id===last&&!S.playlists[i].free){openPlaylist(last);return;}
+  openPlaylist(realPlId());
 })();
 refreshLicense();
 if(!S.settings.noAuto) importAccount(true);
