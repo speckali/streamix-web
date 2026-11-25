@@ -1,4 +1,4 @@
-var APP_VERSION='0.3.9 · 25/11 15h10';
+var APP_VERSION='0.4.0 · 25/11 15h30';
 var IS_TIZEN=!!(window.tizen&&window.tizen.application);
 if(!IS_TIZEN){try{document.documentElement.classList.add('web');}catch(e){}}
 // ==PURE==
@@ -982,7 +982,7 @@ function renderGrid(){
     $('grid').innerHTML='<div class="empty">'+(S.catId==='__recent'&&S.kind!=='live'&&!S.query?'Rien pour le moment. Les '+(S.kind==='series'?'séries':'films')+' que vous regardez apparaîtront ici, avec la reprise là où vous vous êtes arrêté.':S.kind==='fav'&&!S.query?'Aucun favori. Placez-vous sur un élément et appuyez sur Rouge, Jaune ou Info (ou utilisez le bouton Favori dans le lecteur).':'Aucun résultat.')+'</div>';
     return;
   }
-  appendChunk();
+  appendChunk();newEpsCheck();
 }
 function catName(id){
   if(id==='__recent') return S.kind==='live'?'Récemment regardées':'Déjà vus';
@@ -1012,6 +1012,29 @@ function appendChunk(){
   for(i=S.rendered;i<end;i++) h+=cardHtml(S.items[i],i);
   S.rendered=end;
   $('grid').insertAdjacentHTML('beforeend',h);
+}
+// badge "+N" sur les series en favori / deja vues quand de nouveaux episodes sont sortis
+var NE={m:{},tok:0};
+function newEpsBadge(sid,n){
+  var c=document.querySelectorAll('#grid .card'),i,it,th,b;
+  for(i=0;i<c.length;i++){it=S.items[+c[i].getAttribute('data-arg')];if(!it||it.sid!==sid) continue;
+    th=c[i].firstChild;b=th.querySelector('.newep');if(!b){b=document.createElement('span');b.className='newep';th.appendChild(b);}
+    b.textContent='+'+n+' épisode'+(n>1?'s':'');}
+}
+function newEpsCheck(){
+  if(!S.cur||S.cur.type!=='xtream'||S.view||!(S.kind==='fav'||S.catId==='__recent')) return;
+  var tok=++NE.tok,map=lsGet('streamix.epcnt',{})||{},pre=S.cur.id+':',list=S.items.filter(function(x){return x&&x.t==='series'&&x.sid;}).slice(0,25),k=0;
+  var next=function(){
+    if(tok!==NE.tok||k>=list.length) return;
+    var it=list[k++],old=+map[pre+it.sid]||0,c=NE.m[it.sid];
+    var show=function(n){if(old&&n>old) newEpsBadge(it.sid,n-old);};
+    if(!old){next();return;}
+    if(c&&Date.now()-c.at<1800000){show(c.n);next();return;}
+    fetchJSON(xBase(S.cur)+'&action=get_series_info&series_id='+encodeURIComponent(it.sid),20000).then(function(j){
+      var n=0;buildSeasons(it,j).forEach(function(sv){n+=sv.items.length;});NE.m[it.sid]={n:n,at:Date.now()};if(tok===NE.tok) show(n);
+    }).catch(function(){}).then(function(){setTimeout(next,150);});
+  };
+  next();
 }
 function refreshStars(){
   var c=document.querySelectorAll('#grid .card'),i,it,th,st;
@@ -1197,7 +1220,20 @@ function openSeries(it,opts){
     if(tok!==S.tok) return;
     loadingOff();
     var seasons=buildSeasons(it,j);S.serCache=S.serCache||{};S.serCache[it.sid]=seasons;
-    if(!seasons.length){info('Aucun épisode','Ce programme ne contient aucun épisode lisible.');return;}
+    if(!seasons.length){
+      var alt=null,base=lgBase(it.n),pool=(S.data&&S.data.series&&S.data.series.items)||[],q;
+      if(!(opts&&opts.alt)) for(q=0;q<pool.length;q++){if(pool[q].sid!==it.sid&&pool[q].n===it.n){alt=pool[q];break;}}
+      if(!alt&&!(opts&&opts.alt)) for(q=0;q<pool.length;q++){if(pool[q].sid!==it.sid&&lgBase(pool[q].n)===base&&lgCode(pool[q].n)===lgCode(it.n)){alt=pool[q];break;}}
+      if(alt){
+        if(S.favSet&&S.favSet[it.k]){S.favs=S.favs.map(function(f){if(f.k!==it.k) return f;var c={};FAV_FIELDS.forEach(function(x){if(alt[x]!==undefined) c[x]=alt[x];});return c;});rebuildFavSet();saveFavs&&saveFavs();}
+        var o2={};for(var kk in (opts||{})) o2[kk]=opts[kk];o2.alt=true;openSeries(alt,o2);return;
+      }
+      info('Aucun épisode','Ce programme ne contient aucun épisode lisible.');return;
+    }
+    var nEp=0;seasons.forEach(function(sv){nEp+=sv.items.length;});
+    var ecMap=lsGet('streamix.epcnt',{})||{},ecK=(S.cur?S.cur.id:'x')+':'+it.sid,ecOld=+ecMap[ecK]||0,nNew=(ecOld&&nEp>ecOld)?nEp-ecOld:0;
+    ecMap[ecK]=nEp;lsSet('streamix.epcnt',ecMap);
+    if(nNew) toast(nNew+' nouvel'+(nNew>1?'s':'')+' épisode'+(nNew>1?'s':'')+' depuis votre dernière visite');
     var le=lastEpGet(it),si=0,ei=-1;
     if(le) seasons.forEach(function(sv,a){sv.items.forEach(function(e,b){if(e.k===le){si=a;ei=b;}});});
     var showEps=function(){
@@ -1211,7 +1247,7 @@ function openSeries(it,opts){
         var b=[];
         if(ei>=0){var ep=seasons[si].items[ei],at=resumeGet(ep);b.push({l:'▶ Reprendre '+ep.n.split(' - ')[0]+(at>30?' à '+fmtMin(at):''),fn:function(){playEp(si,ei);}});}
         else b.push({l:'▶ Regarder S'+seasons[0].n+' E'+(seasons[0].items[0].en||1),fn:function(){playEp(0,0);}});
-        b.push({l:'Épisodes ('+seasons.length+' saison'+(seasons.length>1?'s':'')+')',fn:function(){closeFiche();showEps();}});
+        b.push({l:'Épisodes ('+seasons.length+' saison'+(seasons.length>1?'s':'')+' · '+nEp+' épisode'+(nEp>1?'s':'')+(nNew?' · '+nNew+' nouveau'+(nNew>1?'x':''):'')+')',fn:function(){closeFiche();showEps();}});
         b.push(favBtn(it));b.push({l:'Retour',fn:closeFiche});
         return b;
       };
@@ -2870,7 +2906,7 @@ function dlgChannels(){
   focusIn($('modal'),'.obtn.osel');
 }
 // ---------- tri des listes (comme l'appli Android) ----------
-function sortShort(){var m=S.settings.sort==='recent'?'recent':'provider';return 'Tri : '+({provider:'Fournisseur',recent:(S.kind==='live'?'Nouveautés':'Nouveautés FR'),az:'A → Z',za:'Z → A'}[m]||'Fournisseur');}
+function sortShort(){var m=S.settings.sort==='recent'?'recent':'provider';return 'Tri : '+({provider:'Fournisseur',recent:'Nouveautés',az:'A → Z',za:'Z → A'}[m]||'Fournisseur');}
 var SORTS=[['provider','Ordre du fournisseur'],['recent','Nouveautés (en français pour les films et séries)']];
 function sortLabel(){var m=S.settings.sort||'provider',i;for(i=0;i<SORTS.length;i++) if(SORTS[i][0]===m) return SORTS[i][1];return SORTS[0][1];}
 function applySort(list){
