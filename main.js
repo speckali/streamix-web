@@ -1,4 +1,4 @@
-var APP_VERSION='0.3.9 · 25/11 15h05';
+var APP_VERSION='0.3.9 · 25/11 15h10';
 var IS_TIZEN=!!(window.tizen&&window.tizen.application);
 if(!IS_TIZEN){try{document.documentElement.classList.add('web');}catch(e){}}
 // ==PURE==
@@ -2870,11 +2870,11 @@ function dlgChannels(){
   focusIn($('modal'),'.obtn.osel');
 }
 // ---------- tri des listes (comme l'appli Android) ----------
-function sortShort(){var m=S.settings.sort||'provider';return 'Tri : '+({provider:'Fournisseur',recent:(S.kind==='live'?'Nouveautés':'Nouveautés FR'),az:'A → Z',za:'Z → A'}[m]||'Fournisseur');}
-var SORTS=[['provider','Ordre du fournisseur'],['recent','Nouveautés (en français pour les films et séries)'],['az','Nom A → Z'],['za','Nom Z → A']];
+function sortShort(){var m=S.settings.sort==='recent'?'recent':'provider';return 'Tri : '+({provider:'Fournisseur',recent:(S.kind==='live'?'Nouveautés':'Nouveautés FR'),az:'A → Z',za:'Z → A'}[m]||'Fournisseur');}
+var SORTS=[['provider','Ordre du fournisseur'],['recent','Nouveautés (en français pour les films et séries)']];
 function sortLabel(){var m=S.settings.sort||'provider',i;for(i=0;i<SORTS.length;i++) if(SORTS[i][0]===m) return SORTS[i][1];return SORTS[0][1];}
 function applySort(list){
-  var m=S.settings.sort||'provider';if(m==='provider'||S.kind==='fav'||S.catId==='__recent') return list;
+  var m=S.settings.sort||'provider';if(m!=='recent') m='provider';if(m==='provider'||S.kind==='fav'||S.catId==='__recent') return list;
   var a=list.slice();
   if(m==='az') a.sort(function(x,y){return String(x.n).localeCompare(String(y.n),'fr',{sensitivity:'base'});});
   else if(m==='za') a.sort(function(x,y){return String(y.n).localeCompare(String(x.n),'fr',{sensitivity:'base'});});
