@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<title>STREAMIX – Administration</title>
+<link rel="icon" href="img/icon.png">
+<link rel="stylesheet" href="site.css">
+<style>
+.adm{max-width:1120px;margin:0 auto;padding:32px 20px 60px}
+.adm h1{font-size:28px;font-weight:900;margin:0 0 4px}
+.sub{color:var(--dim);font-size:14px;margin:0 0 22px}
+input[type=password],input[type=search]{padding:12px 14px;border-radius:12px;border:1px solid var(--line);background:rgba(0,0,0,.25);color:#fff;font-size:16px;width:100%}
+.login{max-width:420px}
+.login label{display:block;color:var(--mut);font-size:14px;margin-bottom:6px}
+.tiles{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px}
+@media(max-width:760px){.tiles{grid-template-columns:repeat(2,1fr)}}
+.tile{background:var(--pan2);border:1px solid rgba(255,255,255,.08);border-radius:16px;padding:16px}
+.tile .v{font-size:30px;font-weight:900;font-variant-numeric:tabular-nums}
+.tile .l{color:var(--mut);font-size:13px}
+.tile.money{background:linear-gradient(180deg,rgba(76,255,143,.12),rgba(76,255,143,.03));border-color:rgba(76,255,143,.3)}
+.tile.money .v{color:var(--ok)}
+.bar{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:12px}
+.bar input{flex:1;min-width:180px}
+.f{padding:8px 14px;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--mut);cursor:pointer;font-size:14px}
+.f[aria-pressed=true]{background:var(--grad);color:#06101f;border-color:transparent;font-weight:700}
+.tw{overflow-x:auto;border:1px solid rgba(255,255,255,.08);border-radius:14px}
+table{width:100%;border-collapse:collapse;font-size:14px;min-width:760px}
+th,td{padding:10px 12px;text-align:left;border-bottom:1px solid rgba(255,255,255,.06);white-space:nowrap}
+th{color:var(--dim);font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:.6px;background:rgba(255,255,255,.03)}
+td.mac{font-family:ui-monospace,Consolas,monospace}
+.st{display:inline-block;padding:3px 10px;border-radius:999px;font-size:12px;font-weight:700}
+.st.vie{background:rgba(76,255,143,.14);color:var(--ok)}.st.essai{background:rgba(79,227,255,.14);color:var(--c1)}
+.st.exp{background:rgba(255,255,255,.08);color:var(--mut)}.st.bloq{background:rgba(255,107,107,.15);color:var(--err)}
+.ab{padding:6px 11px;border-radius:9px;border:1px solid var(--line);background:transparent;color:#fff;cursor:pointer;font-size:13px;margin-right:6px}
+.ab.bad{border-color:rgba(255,107,107,.5);color:var(--err)}
+.msg{display:none;margin:12px 0;padding:10px 14px;border-radius:12px;font-size:14px}
+.msg.show{display:block}.msg.err{background:rgba(255,107,107,.1);color:var(--err)}.msg.ok{background:rgba(76,255,143,.1);color:var(--ok)}
+.hidden{display:none}
+h2.s{font-size:18px;margin:28px 0 10px}
+</style>
+</head>
+<body>
+<div class="adm">
+  <h1>STREAMIX · Administration</h1>
+  <p class="sub">Ventes, TV inscrites et licences. Page privée.</p>
+
+  <form id="login" class="card login">
+    <label for="pw">Mot de passe administrateur</label>
+    <input id="pw" type="password" autocomplete="current-password" required>
+    <div id="lmsg" class="msg"></div>
+    <button class="btn go" id="lbtn" type="submit" style="margin-top:14px;width:100%">Entrer</button>
+  </form>
+
+  <div id="app" class="hidden">
+    <div class="tiles" id="tiles"></div>
+    <div class="bar">
+      <button class="f" data-f="all" aria-pressed="true">Toutes</button>
+      <button class="f" data-f="À vie" aria-pressed="false">À vie</button>
+      <button class="f" data-f="Essai" aria-pressed="false">Essai</button>
+      <button class="f" data-f="Expiré" aria-pressed="false">Expiré</button>
+      <button class="f" data-f="Bloqué" aria-pressed="false">Bloqué</button>
+      <input id="q" type="search" placeholder="Chercher une adresse MAC">
+      <button class="ab" id="refresh" type="button">Actualiser</button>
+      <button class="ab" id="out" type="button">Quitter</button>
+    </div>
+    <div id="amsg" class="msg"></div>
+    <div class="tw"><table>
+      <thead><tr><th>Adresse MAC</th><th>Statut</th><th>Payé</th><th>Inscrite le</th><th>Dernière connexion</th><th>Fin d'essai</th><th>Playlists</th><th>Actions</th></tr></thead>
+      <tbody id="tb"></tbody>
+    </table></div>
+    <p class="sub" id="count" style="margin-top:10px"></p>
+    <h2 class="s">Dernières ventes</h2>
+    <div class="tw"><table><thead><tr><th>Date</th><th>Adresse MAC</th><th>Montant</th></tr></thead><tbody id="sales"></tbody></table></div>
+    <p class="sub" style="margin-top:10px">Le détail des paiements, les remboursements et les virements vers ta banque sont dans Stripe (dashboard.stripe.com ou l'app Stripe).</p>
+  </div>
+</div>
+<script>
+(function(){
+var API='https://havfeafimghxgzfuiyqq.supabase.co/functions/v1/admin-api',KEY='sb_publishable_Z17ytwlII-oogqV2azA_ww_o4Cv8uik';
+function $(i){return document.getElementById(i);}
+var pw='',devices=[],sales=null,filt='all',q='';
+var ERR={bad_password:'Mot de passe incorrect.',locked:'Trop d\'essais. Réessaie dans 15 minutes.',not_configured:'Espace admin non configuré : ajoute le secret ADMIN_PASSWORD (8 caractères minimum) dans Supabase, Edge Functions, Secrets.',not_found:'Appareil introuvable.',trial_over:'Essai terminé et aucun paiement : utilise « Activer à vie » pour l\'offrir.',server:'Erreur du serveur. Réessaie.',network:'Serveur injoignable (il est peut-être en pause).'};
+function show(el,k,t){el.className='msg show '+k;el.textContent=t;}
+function hide(el){el.className='msg';el.textContent='';}
+function call(body){body.password=pw;return fetch(API,{method:'POST',headers:{apikey:KEY,'Content-Type':'application/json'},body:JSON.stringify(body)}).then(function(r){return r.json();}).catch(function(){return {ok:false,error:'network'};});}
+function fmt(s){if(!s) return '—';var d=new Date(s);return isNaN(d)?'—':d.toLocaleDateString('fr-FR')+' '+d.toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});}
+function eur(c){return ((c||0)/100).toLocaleString('fr-FR',{style:'currency',currency:'EUR'});}
+function cls(e){return e==='À vie'?'vie':e==='Essai'?'essai':e==='Bloqué'?'bloq':'exp';}
+function el(t,c,txt){var e=document.createElement(t);if(c) e.className=c;if(txt!=null) e.textContent=txt;return e;}
+function tiles(){
+  var s=sales||{},vie=devices.filter(function(d){return d.etat==='À vie';}).length,essai=devices.filter(function(d){return d.etat==='Essai';}).length;
+  var T=[['money',eur(s.total_cents),(s.count||0)+' vente(s) au total'],['money',eur(s.month_cents),(s.month_count||0)+' vente(s) ce mois-ci'],['',vie+' / '+essai,'TV à vie / en essai'],['',String(s.active7||0),'TV utilisées ces 7 jours ('+devices.length+' inscrites)']];
+  var t=$('tiles');t.innerHTML='';T.forEach(function(x){var d=el('div','tile '+x[0]);d.appendChild(el('div','v',x[1]));d.appendChild(el('div','l',x[2]));t.appendChild(d);});
+}
+function render(){
+  tiles();
+  var rows=devices.filter(function(d){return (filt==='all'||d.etat===filt)&&(!q||d.mac.indexOf(q)>-1);});
+  var tb=$('tb');tb.innerHTML='';
+  rows.forEach(function(d){
+    var tr=el('tr');tr.appendChild(el('td','mac',d.mac.toUpperCase()));
+    var st=el('td');st.appendChild(el('span','st '+cls(d.etat),d.etat));tr.appendChild(st);
+    tr.appendChild(el('td','',d.paid?'Oui':'—'));
+    tr.appendChild(el('td','',fmt(d.created_at)));tr.appendChild(el('td','',fmt(d.last_seen_at)));
+    tr.appendChild(el('td','',d.etat==='Essai'||d.etat==='Expiré'?fmt(d.expires_at):'—'));
+    tr.appendChild(el('td','',String(d.playlists||0)));
+    var a=el('td');
+    if(d.etat==='Bloqué') a.appendChild(btn('Débloquer','','unblock','Débloquer cette TV ?',d.mac));
+    else a.appendChild(btn('Bloquer','bad','block','Bloquer cette TV ? Elle perdra l\'accès à l\'app.',d.mac));
+    if(d.etat!=='À vie') a.appendChild(btn('Activer à vie','','grant','Activer cette TV à vie, sans paiement ?',d.mac));
+    tr.appendChild(a);tb.appendChild(tr);
+  });
+  $('count').textContent=rows.length+' TV affichée(s) sur '+devices.length;
+  var sb=$('sales');sb.innerHTML='';
+  var rec=(sales&&sales.recent)||[];
+  if(!rec.length){var tr0=el('tr'),td0=el('td','','Aucune vente pour le moment.');td0.colSpan=3;tr0.appendChild(td0);sb.appendChild(tr0);}
+  rec.forEach(function(p){var tr=el('tr');tr.appendChild(el('td','',fmt(p.created_at)));tr.appendChild(el('td','mac',String(p.mac||'').toUpperCase()));tr.appendChild(el('td','',eur(p.amount_cents)));sb.appendChild(tr);});
+}
+function btn(label,c,action,ask,mac){var b=el('button','ab '+c,label);b.type='button';b.onclick=function(){act(mac,action,ask,b);};return b;}
+function act(mac,action,ask,b){
+  if(!confirm(ask+'\n'+mac.toUpperCase())) return;
+  b.disabled=true;hide($('amsg'));
+  call({action:action,mac:mac}).then(function(res){
+    if(!res.ok){show($('amsg'),'err',ERR[res.error]||ERR.server);b.disabled=false;return;}
+    show($('amsg'),'ok','C\'est fait. Sur la TV : icône profil, puis « Synchroniser ».');load();
+  });
+}
+function load(){return call({action:'list'}).then(function(res){if(!res.ok){show($('amsg'),'err',ERR[res.error]||ERR.server);return;}devices=res.devices||[];sales=res.sales||null;render();});}
+$('login').addEventListener('submit',function(e){
+  e.preventDefault();hide($('lmsg'));$('lbtn').disabled=true;pw=$('pw').value;
+  call({action:'list'}).then(function(res){
+    $('lbtn').disabled=false;
+    if(!res.ok){pw='';show($('lmsg'),'err',ERR[res.error]||ERR.server);return;}
+    devices=res.devices||[];sales=res.sales||null;$('login').classList.add('hidden');$('app').classList.remove('hidden');render();
+  });
+});
+$('out').onclick=function(){pw='';devices=[];sales=null;$('app').classList.add('hidden');$('login').classList.remove('hidden');$('pw').value='';};
+$('refresh').onclick=function(){hide($('amsg'));load();};
+$('q').addEventListener('input',function(e){q=e.target.value.trim().toLowerCase();render();});
+Array.prototype.forEach.call(document.querySelectorAll('.f'),function(b){b.addEventListener('click',function(){filt=b.getAttribute('data-f');Array.prototype.forEach.call(document.querySelectorAll('.f'),function(x){x.setAttribute('aria-pressed',String(x===b));});render();});});
+})();
+</script>
+</body>
+</html>
