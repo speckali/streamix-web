@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>STREAMIX - Activer ma TV</title>
+<link rel="icon" href="img/icon.png">
+<meta name="description" content="STREAMIX, lecteur multimédia pour TV Samsung et Android TV : activez votre appareil.">
+<style>
+:root{--bg:#04051a;--pan:#14186b;--line:rgba(90,94,240,.45);--tx:#fff;--mut:#ccd3f5;--c1:#4fe3ff;--c2:#9f5bff;--ok:#4cff8f;--err:#ff6b6b;--warn:#ffc857}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg) radial-gradient(ellipse at 80% -10%,rgba(59,43,255,.55),transparent 60%) no-repeat;color:var(--tx);font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;min-height:100vh;padding:28px 16px 40px}
+main{max-width:520px;margin:0 auto}
+.logo{display:flex;align-items:center;gap:12px}
+.logo svg{width:48px;height:48px;flex:none}
+h1{font-size:34px;font-style:italic;font-weight:900;margin:0;letter-spacing:.5px}
+h1 span{color:var(--c2)}
+.sub{color:var(--mut);margin:2px 0 0}
+.card{background:var(--pan);border:1px solid var(--line);border-radius:18px;padding:20px;margin-top:18px}
+h2{font-size:19px;margin:0 0 6px}
+p{line-height:1.5;margin:6px 0}
+.muted{color:var(--mut);font-size:14px}
+label{display:block;font-size:13px;color:var(--mut);margin:14px 0 6px}
+input{width:100%;padding:13px 14px;border-radius:12px;border:1px solid var(--line);background:rgba(0,0,0,.25);color:var(--tx);font-size:17px;letter-spacing:.5px}
+button{width:100%;margin-top:14px;padding:15px;border:0;border-radius:14px;font-size:17px;font-weight:800;cursor:pointer}
+.go{background:linear-gradient(90deg,#35d5f5,#7c6bff);color:#06101f}
+.alt{background:transparent;color:var(--tx);border:1px solid var(--line)}
+button:disabled{opacity:.55;cursor:default}
+.msg{margin-top:12px;font-size:15px;line-height:1.45;min-height:20px}
+.ok{color:var(--ok)}.err{color:var(--err)}.warn{color:var(--warn)}
+.status{display:none;margin-top:14px;padding:14px;border-radius:12px;background:rgba(0,0,0,.25)}
+.status b{color:var(--c1)}
+.steps{margin:6px 0 0;padding-left:20px;line-height:1.6;color:var(--mut);font-size:15px}
+a{color:var(--c1)}
+.hide{display:none}
+.cb{display:flex;gap:10px;align-items:flex-start;font-size:14px;color:var(--mut);margin:12px 0 0;line-height:1.45;cursor:pointer}.cb input{width:20px;height:20px;flex:none;margin:1px 0 0;accent-color:#4fe3ff}
+footer{margin-top:26px;color:var(--mut);font-size:13px;line-height:1.5;text-align:center}
+</style>
+</head>
+<body>
+<main>
+  <div class="logo">
+    <svg viewBox="0 0 100 100"><defs><linearGradient id="lg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#9b4dff"/><stop offset="1" stop-color="#3f7bff"/></linearGradient></defs><path d="M18 10 L88 50 L18 90 Z" fill="url(#lg)" stroke="url(#lg)" stroke-width="8" stroke-linejoin="round"/><path d="M34 34 L62 50 L34 66 Z" fill="rgba(255,255,255,.4)"/></svg>
+    <div><h1>STREAM<span>IX</span></h1><div class="sub">Lecteur multimédia pour TV Samsung, Hisense et Android TV</div></div>
+  </div>
+
+  <div class="card hide" id="back"></div>
+
+  <div class="card">
+    <h2>Activer ma TV</h2>
+    <p class="muted">Sur la TV, ouvrez STREAMIX et appuyez sur l'icône <b>profil</b> en haut à droite : l'adresse MAC et la clé de l'appareil s'y affichent.</p>
+    <label for="mac">Adresse MAC</label>
+    <input id="mac" placeholder="4a:ba:2f:5c:93:4e" autocomplete="off" autocapitalize="off" spellcheck="false">
+    <label for="key">Clé de l'appareil (6 chiffres)</label>
+    <input id="key" inputmode="numeric" maxlength="6" placeholder="659131" autocomplete="off">
+    <button class="alt" id="check" type="button">Vérifier mon appareil</button>
+    <div class="status" id="status"></div>
+    <div class="msg" id="msg"></div>
+  </div>
+
+  <div class="card hide" id="pay">
+    <h2>Licence à vie</h2>
+    <p class="muted"><b style="color:#fff;font-size:22px">9,99 €</b> une seule fois, sans abonnement. Paiement sécurisé par Stripe. Votre TV est activée automatiquement après le paiement.</p>
+    <label class="cb"><input type="checkbox" id="cgv"> J'ai lu et j'accepte les <a href="cgv.html" target="_blank">conditions générales de vente</a> et la <a href="confidentialite.html" target="_blank">politique de confidentialité</a>.</label>
+    <label class="cb"><input type="checkbox" id="retract"> Je demande l'activation immédiate de ma licence et je reconnais perdre mon droit de rétractation de 14 jours une fois la licence activée (article L221-28 du Code de la consommation).</label>
+    <button class="go" id="buy" type="button">Payer 9,99 € et activer à vie</button>
+    <div class="msg" id="pmsg"></div>
+  </div>
+
+  <div class="card hide" id="code">
+    <h2>J'ai un code d'activation</h2>
+    <label for="cval">Code</label>
+    <input id="cval" placeholder="XXXX-XXXX-XXXX" autocomplete="off" autocapitalize="characters" spellcheck="false">
+    <button class="alt" id="redeem" type="button">Activer avec ce code</button>
+    <div class="msg" id="cmsg"></div>
+  </div>
+
+  <div class="card">
+    <h2>Ajouter une playlist depuis mon téléphone</h2>
+    <ol class="steps">
+      <li>Sur la TV, ouvrez l'icône <b>profil</b>.</li>
+      <li>Scannez le QR code avec votre téléphone.</li>
+      <li>Entrez votre lien M3U ou vos codes Xtream : la playlist arrive sur la TV.</li>
+    </ol>
+  </div>
+
+  <footer>
+    <a href="./">Accueil</a> · <a href="cgv.html">CGV</a> · <a href="confidentialite.html">Confidentialité</a> · <a href="mentions-legales.html">Mentions légales</a> · <a href="mailto:streamix62@gmail.com">Contact</a><br><br>
+    STREAMIX est un lecteur multimédia uniquement : aucune chaîne, playlist ni abonnement IPTV n'est fourni ou vendu.<br>
+    Utilisez uniquement des contenus auxquels vous avez légalement accès.
+  </footer>
+</main>
+<script>
+(function(){
+  var SB_URL='https://havfeafimghxgzfuiyqq.supabase.co',SB_KEY='sb_publishable_Z17ytwlII-oogqV2azA_ww_o4Cv8uik';
+  function $(i){return document.getElementById(i);}
+  function msg(id,t,cls){var m=$(id);m.textContent=t||'';m.className='msg'+(cls?' '+cls:'');}
+  function normMac(v){
+    var hex=String(v||'').toLowerCase().replace(/[^0-9a-f]/g,'');
+    return hex.length===12?hex.match(/../g).join(':'):'';
+  }
+  function ident(){
+    var mac=normMac($('mac').value),key=$('key').value.trim();
+    if(!mac){msg('msg','Adresse MAC incomplète : 12 caractères (chiffres et lettres a à f).','err');return null;}
+    if(!/^\d{6}$/.test(key)){msg('msg','La clé de l\'appareil contient 6 chiffres.','err');return null;}
+    $('mac').value=mac;
+    try{localStorage.setItem('streamix.site.dev',JSON.stringify({mac:mac,key:key}));}catch(e){}
+    return {mac:mac,key:key};
+  }
+  function rpc(name,body){
+    return fetch(SB_URL+'/rest/v1/rpc/'+name,{method:'POST',headers:{apikey:SB_KEY,'Content-Type':'application/json'},body:JSON.stringify(body)}).then(function(r){return r.json();});
+  }
+  var ERR={not_found:'Appareil inconnu : ouvrez d\'abord STREAMIX sur la TV, connectée à internet, puis réessayez.',invalid_key:'Clé de l\'appareil incorrecte.',locked:'Trop d\'essais : réessayez dans 15 minutes.',invalid:'Adresse MAC ou clé invalide.',invalid_code:'Code inconnu ou désactivé.',used:'Ce code a déjà été utilisé le nombre de fois prévu.',already_redeemed:'Ce code a déjà été utilisé sur cette TV.',already_active:'Cette TV est déjà activée à vie.',stripe_not_configured:'Le paiement n\'est pas encore disponible.',stripe_error:'Le service de paiement ne répond pas, réessayez plus tard.',no_site_url:'Le paiement n\'est pas encore disponible.'};
+  function fmt(d){var x=new Date(d);return ('0'+x.getDate()).slice(-2)+'/'+('0'+(x.getMonth()+1)).slice(-2)+'/'+x.getFullYear();}
+  function showStatus(res){
+    var s=$('status'),st=res.status,lab,cls;
+    if(st==='active'&&!res.expires_at){lab='Activée à vie';cls='ok';}
+    else if(st==='active'){lab='Active jusqu\'au '+fmt(res.expires_at);cls='ok';}
+    else if(st==='trial'){lab='Essai gratuit jusqu\'au '+fmt(res.expires_at);cls='warn';}
+    else if(st==='expired'){lab='Essai ou abonnement terminé';cls='err';}
+    else {lab='Inactive';cls='err';}
+    s.innerHTML='Statut : <b class="'+cls+'">'+lab+'</b>';
+    s.style.display='block';
+    var lifetime=st==='active'&&!res.expires_at;
+    $('pay').className=lifetime?'card hide':'card';
+    $('code').className=lifetime?'card hide':'card';
+  }
+  function check(){
+    var id=ident();if(!id) return;
+    msg('msg','Vérification...');$('check').disabled=true;
+    rpc('get_device_status',{p_mac:id.mac,p_key:id.key}).then(function(res){
+      $('check').disabled=false;
+      if(res&&res.ok){msg('msg','');showStatus(res);}
+      else {$('status').style.display='none';$('pay').className='card hide';$('code').className='card hide';msg('msg',ERR[res&&res.error]||'Vérification impossible.','err');}
+    }).catch(function(){$('check').disabled=false;msg('msg','Serveur STREAMIX injoignable. Vérifiez votre connexion.','err');});
+  }
+  $('check').onclick=check;
+  $('buy').onclick=function(){
+    var id=ident();if(!id) return;
+    if(!$('cgv').checked||!$('retract').checked){msg('pmsg','Cochez les deux cases ci-dessus pour continuer.','err');return;}
+    $('buy').disabled=true;msg('pmsg','Ouverture du paiement sécurisé...');
+    fetch(SB_URL+'/functions/v1/create-checkout',{method:'POST',headers:{apikey:SB_KEY,'Content-Type':'application/json'},body:JSON.stringify({mac:id.mac,key:id.key,origin:location.href.replace(/[?#].*$/,'')+'?r='})})
+    .then(function(r){return r.json();}).then(function(res){
+      if(res&&res.url){location.href=res.url;return;}
+      $('buy').disabled=false;msg('pmsg',ERR[res&&res.error]||'Paiement impossible pour le moment.','err');
+    }).catch(function(){$('buy').disabled=false;msg('pmsg','Serveur de paiement injoignable.','err');});
+  };
+  $('redeem').onclick=function(){
+    var id=ident();if(!id) return;
+    var c=$('cval').value.toUpperCase().replace(/\s+/g,'');
+    if(!c){msg('cmsg','Entrez votre code.','err');return;}
+    $('redeem').disabled=true;msg('cmsg','Vérification du code...');
+    rpc('redeem_code',{p_mac:id.mac,p_key:id.key,p_code:c}).then(function(res){
+      $('redeem').disabled=false;
+      if(res&&res.ok){msg('cmsg','Code accepté : votre TV est activée. Sur la TV, ouvrez l\'icône profil puis « Synchroniser ».','ok');$('cval').value='';showStatus(res);}
+      else msg('cmsg',ERR[res&&res.error]||'Code refusé.','err');
+    }).catch(function(){$('redeem').disabled=false;msg('cmsg','Serveur STREAMIX injoignable.','err');});
+  };
+  // pre-remplissage : lien depuis la TV (#mac=..&key=..) ou derniere saisie
+  var h={},q=(location.hash||'').replace(/^#/,'').split('&'),i,kv;
+  for(i=0;i<q.length;i++){kv=q[i].split('=');if(kv[0]) h[kv[0]]=decodeURIComponent(kv[1]||'');}
+  var saved=null;try{saved=JSON.parse(localStorage.getItem('streamix.site.dev')||'null');}catch(e){}
+  if(h.mac||h.key){$('mac').value=h.mac||'';$('key').value=h.key||'';}
+  else if(saved){$('mac').value=saved.mac||'';$('key').value=saved.key||'';}
+  // retour de Stripe
+  var sp=/[?&]paiement=(ok|annule)/.exec(location.search);
+  if(sp){
+    var b=$('back');b.className='card';
+    if(sp[1]==='ok'){b.innerHTML='<h2 class="ok">Paiement reçu, merci !</h2><p class="muted">L\'activation prend quelques secondes. Sur la TV, ouvrez l\'icône profil puis « Synchroniser ».</p>';if($('mac').value&&$('key').value) setTimeout(check,2500);}
+    else b.innerHTML='<h2 class="warn">Paiement annulé</h2><p class="muted">Aucun montant n\'a été prélevé. Vous pouvez réessayer quand vous voulez.</p>';
+  } else if($('mac').value&&$('key').value) check();
+})();
+</script>
+</body>
+</html>
