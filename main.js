@@ -1,4 +1,4 @@
-var APP_VERSION='0.4.0 · 25/11 15h30';
+var APP_VERSION='0.4.0 · 25/11 15h45';
 var IS_TIZEN=!!(window.tizen&&window.tizen.application);
 if(!IS_TIZEN){try{document.documentElement.classList.add('web');}catch(e){}}
 // ==PURE==
@@ -1752,7 +1752,8 @@ function playerKey(k){
   var errShown=$('perr').style.display==='block',ctl=$('player').classList.contains('ctl');
   if(P.ff){
     if(k==='ok'||k==='play'||k==='playpause'||k==='pause'){ffStop(true);return;}
-    if(k==='back'||k==='stop'){ffStop(false);if(k==='back') return;}
+    if(k==='back'){ffStop(true);toast('Lecture reprise ici');return;}
+    if(k==='stop'){ffStop(false);}
     if(k==='right'){ffSet(1);return;}
     if(k==='left'){ffSet(-1);return;}
   }
@@ -2018,7 +2019,7 @@ function act(a,arg,el){
     case 'p-tracks': if(P.item) dlgTracks();break;
     case 'p-quality': if(P.item) dlgQuality();break;
     case 'p-next': playNext();break;
-    case 'p-skip': try{vid.currentTime=(vid.currentTime||0)+85;}catch(e){}toast('Intro passée (+1 min 25)');updNextBtn();break;
+    case 'p-skip': try{vid.currentTime=(vid.currentTime||0)+30;}catch(e){}toast('Intro passée (+30 s)');updNextBtn();break;
     case 'p-versions': if(P.item) dlgVersions();break;
     case 'p-bar': togglePlay();break;
     case 'p-opts': if(P.item) dlgPlayerOpts();break;
@@ -2929,6 +2930,12 @@ function ffSet(dir){
   if(!P.item||P.item.t==='live'||!isFinite(vid.duration)) return;
   var cur=P.ff||0,lvl;
   if(cur&&(cur>0)===(dir>0)){lvl=FF_STEPS.indexOf(Math.abs(cur))+1;if(lvl>=FF_STEPS.length) lvl=FF_STEPS.length-1;}
+  else if(cur){
+    // touche inverse pendant l'avance / le retour rapide : on ralentit, puis on reprend la lecture (pas de demi-tour)
+    lvl=FF_STEPS.indexOf(Math.abs(cur))-1;
+    if(lvl<0){ffStop(true);toast('Lecture reprise ici');return;}
+    dir=cur>0?1:-1;
+  }
   else lvl=0;
   P.ff=dir*FF_STEPS[lvl];
   if(P.scrub==null) P.scrub=vid.currentTime||0;
