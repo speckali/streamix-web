@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>STREAMIX - Ajouter une playlist</title>
+<link rel="icon" href="img/icon.png">
+<style>
+:root{--bg:#060826;--pan:#14186b;--line:rgba(90,94,240,.45);--tx:#fff;--mut:#ccd3f5;--c1:#4fe3ff;--c2:#9f5bff;--ok:#4cff8f;--err:#ff6b6b}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg) radial-gradient(ellipse at 80% -10%,rgba(59,43,255,.5),transparent 60%) no-repeat;color:var(--tx);font-family:system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;min-height:100vh;padding:24px 16px}
+main{max-width:460px;margin:0 auto}
+h1{font-size:30px;font-style:italic;font-weight:900;margin:0}
+h1 span{color:var(--c2)}
+.sub{color:var(--mut);margin:4px 0 22px}
+.card{background:var(--pan);border:1px solid var(--line);border-radius:18px;padding:18px;margin-bottom:16px}
+.tabs{display:flex;gap:8px;margin-bottom:14px}
+.tabs button{flex:1;padding:12px;border-radius:12px;border:1px solid var(--line);background:transparent;color:var(--tx);font-size:15px;font-weight:700}
+.tabs button.on{background:linear-gradient(90deg,#5b2cf0,#2b1aa8);border-color:var(--c1)}
+label{display:block;font-size:13px;color:var(--mut);margin:12px 0 6px}
+input{width:100%;padding:13px 14px;border-radius:12px;border:1px solid var(--line);background:rgba(0,0,0,.25);color:var(--tx);font-size:16px}
+.go{width:100%;margin-top:18px;padding:15px;border:0;border-radius:14px;background:linear-gradient(90deg,#35d5f5,#7c6bff);color:#06101f;font-size:17px;font-weight:800}
+.go:disabled{opacity:.6}
+.msg{margin-top:14px;font-size:15px;line-height:1.45;min-height:22px}
+.msg.ok{color:var(--ok)}.msg.err{color:var(--err)}
+.dev{font-size:13px;color:var(--mut)}
+.dev b{color:var(--c1)}
+.hide{display:none}
+</style>
+</head>
+<body>
+<main>
+  <h1>STREAM<span>IX</span></h1>
+  <div class="sub">Ajouter une playlist sur votre TV</div>
+
+  <div class="card dev" id="dev">Appareil : <b id="mac">-</b> &nbsp;·&nbsp; Clé : <b id="key">-</b><div id="lic" style="margin-top:8px;font-size:15px"></div></div>
+
+  <div class="card hide" id="act">
+    <div style="font-weight:800;font-size:18px;margin-bottom:4px">Activer STREAMIX sur cette TV</div>
+    <div style="color:var(--mut);font-size:14px;line-height:1.45">Licence à vie, un seul paiement. Le prix s'affiche sur la page de paiement sécurisée Stripe.</div>
+    <button class="go" id="buy" type="button">Payer et activer à vie</button>
+    <label for="code">Ou j'ai un code d'activation</label>
+    <input id="code" placeholder="XXXX-XXXX-XXXX" autocomplete="off" autocapitalize="characters" spellcheck="false">
+    <button class="go" id="redeem" type="button" style="background:transparent;color:var(--tx);border:1px solid var(--line)">Activer avec ce code</button>
+    <div class="msg" id="amsg"></div>
+  </div>
+
+  <div class="card" id="form">
+    <div class="tabs">
+      <button type="button" id="t-m3u" class="on">Lien M3U</button>
+      <button type="button" id="t-xt">Compte Xtream</button>
+    </div>
+    <label for="name">Nom de la playlist</label>
+    <input id="name" maxlength="40" placeholder="Ma playlist" autocomplete="off">
+    <div id="f-m3u">
+      <label for="url">Lien de la playlist</label>
+      <input id="url" type="url" inputmode="url" placeholder="http://exemple.com/liste.m3u" autocomplete="off">
+    </div>
+    <div id="f-xt" class="hide">
+      <label for="server">Serveur</label>
+      <input id="server" type="url" inputmode="url" placeholder="http://serveur.com:8080" autocomplete="off">
+      <label for="user">Nom d'utilisateur</label>
+      <input id="user" autocomplete="off" autocapitalize="off">
+      <label for="pass">Mot de passe</label>
+      <input id="pass" type="password" autocomplete="off">
+    </div>
+    <button class="go" id="go" type="button">Envoyer à la TV</button>
+    <div class="msg" id="msg"></div>
+  </div>
+</main>
+<script>
+(function(){
+  var SB_URL='https://havfeafimghxgzfuiyqq.supabase.co',SB_KEY='sb_publishable_Z17ytwlII-oogqV2azA_ww_o4Cv8uik';
+  function $(i){return document.getElementById(i);}
+  function hashArgs(){
+    var h=(location.hash||'').replace(/^#/,''),o={},p=h.split('&'),i,kv;
+    for(i=0;i<p.length;i++){kv=p[i].split('=');if(kv[0]) o[kv[0]]=decodeURIComponent(kv[1]||'');}
+    return o;
+  }
+  var a=hashArgs(),mac=(a.mac||'').toLowerCase(),key=a.key||'',type='m3u';
+  var valid=/^[0-9a-f]{2}(:[0-9a-f]{2}){5}$/.test(mac)&&/^\d{6}$/.test(key);
+  $('mac').textContent=mac||'-';$('key').textContent=key||'-';
+  function msg(t,cls){var m=$('msg');m.textContent=t;m.className='msg'+(cls?' '+cls:'');}
+  if(!valid){msg('Lien incomplet : scannez de nouveau le QR code affiché sur la TV (icône profil).','err');$('go').disabled=true;}
+  function setType(t){
+    type=t;
+    $('t-m3u').className=t==='m3u'?'on':'';$('t-xt').className=t==='xtream'?'on':'';
+    $('f-m3u').className=t==='m3u'?'':'hide';$('f-xt').className=t==='xtream'?'':'hide';
+  }
+  $('t-m3u').onclick=function(){setType('m3u');};
+  $('t-xt').onclick=function(){setType('xtream');};
+  function normServer(s){
+    s=(s||'').trim();if(!s) return '';
+    if(!/^https?:\/\//i.test(s)) s='http://'+s;
+    s=s.replace(/\/(player_api|get|xmltv|panel_api)\.php.*$/i,'');
+    return s.replace(/\/+$/,'');
+  }
+  var ERR={not_found:'Cette TV n\'est pas encore enregistrée. Ouvrez STREAMIX sur la TV puis réessayez.',invalid_key:'Clé de l\'appareil incorrecte. Scannez de nouveau le QR code.',locked:'Trop d\'essais : réessayez dans 15 minutes.',invalid_name:'Le nom doit faire entre 1 et 40 caractères.',invalid_url:'Le lien doit commencer par http:// ou https://.',limit_reached:'Limite de 10 playlists atteinte : supprimez-en une sur la TV.'};
+  function fmt(d){var x=new Date(d);return ('0'+x.getDate()).slice(-2)+'/'+('0'+(x.getMonth()+1)).slice(-2)+'/'+x.getFullYear();}
+  function amsg(t,cls){var m=$('amsg');m.textContent=t;m.className='msg'+(cls?' '+cls:'');}
+  var AERR={invalid_code:'Code inconnu ou désactivé.',used:'Ce code a déjà été utilisé le nombre de fois prévu.',already_redeemed:'Ce code a déjà été utilisé sur cette TV.',locked:'Trop d\'essais : réessayez dans 15 minutes.',not_found:'TV pas encore enregistrée : ouvrez STREAMIX sur la TV connectée à internet.',invalid_key:'Clé de l\'appareil refusée.',already_active:'Cette TV est déjà activée à vie.',stripe_not_configured:'Le paiement n\'est pas encore disponible.',stripe_error:'Le service de paiement ne répond pas, réessayez plus tard.',no_site_url:'Le paiement n\'est pas encore disponible.'};
+  function showLic(res){
+    var st=res.status,lab,col;
+    if(st==='active'&&!res.expires_at){lab='Activée à vie';col='var(--ok)';}
+    else if(st==='active'){lab='Active jusqu\'au '+fmt(res.expires_at);col='var(--ok)';}
+    else if(st==='trial'){lab='Essai gratuit jusqu\'au '+fmt(res.expires_at);col='#ffc857';}
+    else if(st==='expired'){lab='Essai ou abonnement terminé';col='var(--err)';}
+    else {lab='Inactive';col='var(--err)';}
+    $('lic').innerHTML='Statut : <b style="color:'+col+'">'+lab+'</b>';
+    $('act').className=(st==='active'&&!res.expires_at)?'card hide':'card';
+  }
+  function loadLic(){
+    fetch(SB_URL+'/rest/v1/rpc/get_device_status',{method:'POST',headers:{apikey:SB_KEY,'Content-Type':'application/json'},body:JSON.stringify({p_mac:mac,p_key:key})})
+    .then(function(r){return r.json();}).then(function(res){if(res&&res.ok) showLic(res); else $('lic').textContent=AERR[res&&res.error]||'';}).catch(function(){});
+  }
+  if(valid) loadLic();
+  $('buy').onclick=function(){
+    if(!valid) return;
+    // paiement sur la page « Activer ma TV » (CGV et droit de rétractation à accepter)
+    location.href='activer.html#mac='+encodeURIComponent(mac)+'&key='+encodeURIComponent(key);
+  };
+  $('redeem').onclick=function(){
+    if(!valid) return;
+    var c=$('code').value.toUpperCase().replace(/\s+/g,'');
+    if(!c){amsg('Entrez votre code.','err');return;}
+    $('redeem').disabled=true;amsg('Vérification du code...');
+    fetch(SB_URL+'/rest/v1/rpc/redeem_code',{method:'POST',headers:{apikey:SB_KEY,'Content-Type':'application/json'},body:JSON.stringify({p_mac:mac,p_key:key,p_code:c})})
+    .then(function(r){return r.json();}).then(function(res){
+      $('redeem').disabled=false;
+      if(res&&res.ok){amsg('Code accepté : STREAMIX est activé sur la TV.','ok');$('code').value='';showLic(res);}
+      else amsg(AERR[res&&res.error]||'Code refusé.','err');
+    }).catch(function(){$('redeem').disabled=false;amsg('Serveur STREAMIX injoignable.','err');});
+  };
+  $('go').onclick=function(){
+    if(!valid) return;
+    var name=$('name').value.trim(),url;
+    if(type==='m3u'){
+      url=$('url').value.trim();
+      if(!/^https?:\/\/\S+$/i.test(url)){msg('Saisissez un lien qui commence par http:// ou https://','err');return;}
+      if(!name){try{name=new URL(url).host;}catch(e){name='Playlist';}}
+    } else {
+      var sv=normServer($('server').value),u=$('user').value.trim(),p=$('pass').value;
+      if(!sv||!u||!p){msg('Renseignez le serveur, l\'utilisateur et le mot de passe.','err');return;}
+      url='xtream://'+encodeURIComponent(sv)+'/'+encodeURIComponent(u)+'/'+encodeURIComponent(p);
+      if(!name){name='Xtream - '+sv.replace(/^https?:\/\//i,'').split('/')[0];}
+    }
+    name=name.slice(0,40);
+    $('go').disabled=true;msg('Envoi en cours...');
+    fetch(SB_URL+'/rest/v1/rpc/add_playlist',{method:'POST',headers:{apikey:SB_KEY,'Content-Type':'application/json'},body:JSON.stringify({p_mac:mac,p_key:key,p_name:name,p_url:url})})
+    .then(function(r){return r.json();})
+    .then(function(res){
+      $('go').disabled=false;
+      if(res&&res.ok){msg('« '+name+' » a été envoyée. Elle apparaît sur la TV dans quelques secondes.','ok');$('pass').value='';}
+      else msg(ERR[res&&res.error]||'Envoi impossible ('+((res&&res.error)||'erreur inconnue')+').','err');
+    })
+    .catch(function(){$('go').disabled=false;msg('Serveur STREAMIX injoignable. Vérifiez la connexion du téléphone.','err');});
+  };
+})();
+</script>
+<p style="text-align:center;font-size:13px;opacity:.75;margin:10px 0 30px"><a href="./" style="color:#4fe3ff">Accueil</a> · <a href="cgv.html" style="color:#4fe3ff">CGV</a> · <a href="confidentialite.html" style="color:#4fe3ff">Confidentialité</a> · <a href="mentions-legales.html" style="color:#4fe3ff">Mentions légales</a></p>
+</body>
+</html>
