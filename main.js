@@ -1,4 +1,4 @@
-var APP_VERSION='0.4.0 · 25/11 15h45';
+var APP_VERSION='0.4.1 · 25/11 16h05';
 var IS_TIZEN=!!(window.tizen&&window.tizen.application);
 if(!IS_TIZEN){try{document.documentElement.classList.add('web');}catch(e){}}
 // ==PURE==
@@ -389,7 +389,7 @@ function modal(title,text,btns){
   $('modal').style.display='block';
   focusIn($('modal'));
 }
-function modalClose(){MD.open=false;$('modal').style.display='none';$('modal').classList.remove('seethru','qcompact');document.body.classList.remove('menuopen');}
+function modalClose(){MD.open=false;$('modal').style.display='none';$('modal').classList.remove('seethru','qcompact','chm');document.body.classList.remove('menuopen');}
 function info(title,text){modal(title,text,[{label:'OK',primary:true}]);}
 
 function exitApp(){
@@ -1586,7 +1586,9 @@ function play(it,list,idx,force){
   var sameItem0=(P.item===it);
   if(!P.open){try{P.prevScroll={g:$('gridwrap').scrollTop,c:$('cats').scrollTop};}catch(e){P.prevScroll=null;}}
   P.open=true;P.item=it;P.list=list;P.idx=idx;P.force=!!force;P.retry=0;P.nativeTried=false;
-  if(!sameItem0&&!P.reconn&&P.forceClassic){P.forceClassic=false;if(S.settings.vFormat==='zoom'||S.settings.vFormat==='cover'){S.settings.vFormat='contain';saveSettings();}}
+  if(!sameItem0&&!P.reconn&&P.forceClassic) P.forceClassic=false;
+  // chaque nouvelle video demarre en format normal (bandes noires) ; un changement ne vaut que pour la video en cours
+  if(!sameItem0&&!P.reconn&&S.settings.vFormat!=='contain'){S.settings.vFormat='contain';saveSettings();}
   if(!P.reconn){P.autoN=0;}P.reconn=false;P.played=false;P.nextShown=false;P.nextCancel=false;hideNextCard();
   $('player').style.display='block';
   teardown();
@@ -1605,6 +1607,7 @@ function play(it,list,idx,force){
   $('pphint').textContent=live?'Gauche / Droite (ou CH+ / CH-) : chaîne précédente / suivante - OK ou Bas : afficher le menu - Retour : quitter':'Barre : Gauche / Droite = -10 s / +10 s - Touches ◀◀ ▶▶ : retour / avance rapide (appuyer plusieurs fois = plus vite, OK = reprendre) - Retour : quitter';
   updateFavBtn();
   var qb=$('pbq');if(qb) qb.textContent='Qualité';updVerBtn(it);updNextBtn();$('pbtoggle').innerHTML=ICO_PAUSE;
+  if(!P.reconn&&P.lastIt!==it){P.r503=0;P.lastIt=it;}
   P.resumeDone=false;histAdd(it);vhistAdd(it);lastEpSet(it);loadEpg(it);
   var raw=upStream(resolveUrl(it)),url=(S.settings.relayStreams&&S.settings.relay)?viaRelay(raw):raw;
   P.url=url;
@@ -1651,6 +1654,11 @@ function useHls(url){
         if(d.details==='manifestLoadTimeOut') m='Le serveur ne répond pas (délai dépassé).';
         else if(code===401||code===403) m='Accès refusé ('+code+') : identifiants, abonnement expiré ou limite de connexions atteinte.';
         else if(code===404) m='Flux introuvable (404) : la chaîne n\'existe plus ou l\'adresse est fausse.';
+        else if(code===503||code===502||code===509){
+          // souvent : l'ancienne connexion n'est pas encore liberee chez le fournisseur (changement de chaine rapide) -> on reessaie seul
+          if((P.r503||0)<2){P.r503=(P.r503||0)+1;$('pspintxt').textContent='Serveur occupé ('+code+'), nouvel essai dans 4 s...';try{h.destroy();}catch(e){}P.hls=null;var it503=P.item;setTimeout(function(){if(P.open&&P.item===it503) reloadStream();},4000);return;}
+          m='Le serveur du fournisseur est indisponible ou saturé ('+code+'). Causes fréquentes : la chaîne est en panne chez le fournisseur, ou votre abonnement est déjà utilisé sur un autre appareil (limite de connexions). Réessayez dans quelques minutes ou essayez une autre version de la chaîne (FHD / HD).';
+        }
         else if(code) m='Le serveur a répondu avec l\'erreur '+code+'.';
         else m='Impossible de joindre le flux : serveur injoignable ou requête bloquée par le navigateur (CORS). Une URL de relais (Réglages) peut aider.';
         if(!code&&d.details==='manifestLoadError'&&!P.nativeTried){
@@ -1751,11 +1759,18 @@ function playerKey(k){
   }
   var errShown=$('perr').style.display==='block',ctl=$('player').classList.contains('ctl');
   if(P.ff){
-    if(k==='ok'||k==='play'||k==='playpause'||k==='pause'){ffStop(true);return;}
+    // pendant l'avance / le retour rapide : les fleches servent a naviguer entre les boutons
+    var fa=document.activeElement,fact=fa&&fa.getAttribute&&fa.getAttribute('data-act');
+    if(k==='play'||k==='playpause'||k==='pause'){ffStop(true);return;}
     if(k==='back'){ffStop(true);toast('Lecture reprise ici');return;}
     if(k==='stop'){ffStop(false);}
-    if(k==='right'){ffSet(1);return;}
-    if(k==='left'){ffSet(-1);return;}
+    if(k==='ok'){
+      if(fact==='p-ff'){fa.click();return;}      // OK sur ◀◀ / ▶▶ : change la vitesse
+      ffStop(true);
+      if(!fact||fact==='p-toggle'||(fa&&fa.id==='pbar')) return;   // OK sur Lecture ou la barre : reprend ici
+      // OK sur un autre bouton (Episode suivant, Langue...) : on reprend ici puis on ouvre le bouton
+    }
+    if((k==='left'||k==='right')&&fa&&fa.id==='pbar') ffStop(true);
   }
   switch(k){
     case 'back': case 'stop': closePlayer();return;
@@ -2323,7 +2338,7 @@ function renderOpt(fi){
   var secs=OD.build(),h='',n=0;OD.list=[];
   secs.forEach(function(sec){
     h+='<div class="osec">'+(sec.t?'<div class="ost">'+esc(sec.t)+'</div>':'')+'<div class="orow">';
-    sec.opts.forEach(function(o){OD.list.push(o);h+='<div class="btn obtn'+(o.sel?' osel':'')+(o.primary?' primary':'')+'" data-f data-act="opt" data-arg="'+n+'">'+(o.sel?'✓ ':'')+esc(o.l)+'</div>';n++;});
+    sec.opts.forEach(function(o){OD.list.push(o);h+='<div class="btn obtn'+(o.sel?' osel':'')+(o.primary?' primary':'')+'" data-f data-act="opt" data-arg="'+n+'">'+(o.html?o.html:(o.sel?'✓ ':'')+esc(o.l))+'</div>';n++;});
     h+='</div></div>';
   });
   h+='<div class="osec" style="text-align:right;margin-bottom:0"><div class="btn primary" data-f data-act="opt-close">Fermer</div></div>';
@@ -2333,7 +2348,7 @@ function renderOpt(fi){
   focusIn($('modal'),'[data-act="opt"][data-arg="'+(fi||0)+'"]');
 }
 function closeOpt(){
-  OD.active=false;modalClose();$('modal').classList.remove('optm');$('mm').style.display='';
+  OD.active=false;modalClose();$('modal').classList.remove('optm');$('modal').classList.remove('chm');$('mm').style.display='';
   if(OD.onClose) OD.onClose(); else openSettings();
 }
 function z2(n){return (n<10?'0':'')+n;}
@@ -2901,9 +2916,13 @@ function pickAudio(){
 function dlgChannels(){
   if(!P.list||!P.list.length) return;
   clearTimeout(P.ctlT);
-  var n=P.list.length,from=Math.max(0,P.idx-20),to=Math.min(n,from+60),opts=[],i;
-  for(i=from;i<to;i++)(function(i){var it=P.list[i];opts.push({l:(i+1)+'. '+it.n,sel:i===P.idx,fn:function(){OD.active=false;modalClose();$('modal').classList.remove('optm');$('mm').style.display='';play(P.list[i],P.list,i,P.force);showCtl();}});})(i);
-  optDialog('Chaînes ('+n+')',function(){return [{t:n>60?'Chaînes '+(from+1)+' à '+to+' (Haut / Bas sur la télécommande pour zapper)':'',opts:opts}];},function(){if(P.open){showCtl();focusIn($('player'),'#pbchans');}});
+  var n=P.list.length,from=Math.max(0,P.idx-150),to=Math.min(n,from+300),opts=[],i;
+  for(i=from;i<to;i++)(function(i){var it=P.list[i],nm=String(it.n||'').replace(LG_PRE,'').trim()||it.n;
+    var lg=it.l&&/^https?:/i.test(it.l)?'<img class="chlg" loading="lazy" alt="" src="'+esc(it.l)+'">':'<span class="chlg chni">'+esc(nm.charAt(0))+'</span>';
+    opts.push({l:nm,sel:i===P.idx,html:'<span class="chno">'+(i+1)+'</span>'+lg+'<span class="chnm">'+esc(nm)+'</span>'+(i===P.idx?'<span class="chon">EN COURS</span>':''),
+      fn:function(){OD.active=false;modalClose();$('modal').classList.remove('optm');$('modal').classList.remove('chm');$('mm').style.display='';if(i!==P.idx) play(P.list[i],P.list,i,P.force);showCtl();}});})(i);
+  $('modal').classList.remove('seethru');$('modal').classList.add('chm');
+  optDialog('Chaînes · '+n,function(){return [{t:'',opts:opts}];},function(){$('modal').classList.remove('chm');if(P.open){showCtl();focusIn($('player'),'#pbchans');}});
   focusIn($('modal'),'.obtn.osel');
 }
 // ---------- tri des listes (comme l'appli Android) ----------
